@@ -533,7 +533,9 @@
   .home-cover.on .home-cover-ico svg { opacity: .8; }
   .home-artist { width: 100%; font-family: Unbounded, -apple-system, "Segoe UI", sans-serif; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; text-align: center;
     overflow-wrap: normal; word-break: keep-all; text-shadow: 0 4px 30px rgba(0,0,0,.35); }
-  .home-track { width: 100%; display: flex; align-items: center; gap: 6px; }
+  .home-track { width: 100%; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 999px; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.22); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .home-cover, .home-artist { flex-shrink: 0; }
   .home-tt, .home-track .fav { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; color: var(--text); opacity: 1; }
   .home-tt .tt { width: auto; font-size: 18px; }
   .home-track .fav svg { width: 22px; height: 22px; }
@@ -541,7 +543,7 @@
   .home-now .t-title { display: block; font-size: 17px; font-weight: 700; color: rgba(245,245,247,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .home-picks { display: flex; gap: 14px; overflow-x: auto; padding: 14px 16px 4px; scrollbar-width: none; flex-shrink: 0; }
   .home-picks::-webkit-scrollbar { display: none; }
-  .pick { position: relative; flex: 0 0 176px; height: 196px; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center;
+  .pick { position: relative; flex: 0 0 176px; height: 196px; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center; border: 1px solid rgba(255,255,255,.16);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; } /* cover and title in the middle of the card */
   .pick:nth-child(2n) { border-radius: 58% 42% 55% 45% / 40% 56% 44% 60%; }
   .pick-bg { position: absolute; inset: -20%; background: center/cover no-repeat; filter: blur(22px) saturate(1.9) brightness(.75); }
@@ -2354,6 +2356,13 @@ function renderHome() {
   const el = $('homeArtist'); let size = 54;
   el.style.fontSize = size + 'px';
   while (size > 30 && el.scrollWidth > el.clientWidth + 1) el.style.fontSize = (size -= 4) + 'px';
+  // long names ("FORTUNA 812, waunty 812"): two lines at most
+  while (size > 20 && el.offsetHeight > size * 1.05 * 2 + 2) el.style.fontSize = (size -= 2) + 'px';
+  // and if the screen is still short, the cover gives way, so nothing runs into the cards below
+  const stage = $('home').querySelector('.home-stage'), cover = $('homePlay');
+  let cw = Math.round(Math.min(innerWidth * .82, innerHeight * .46));
+  cover.style.width = cw + 'px';
+  while (cw > 120 && stage.scrollHeight > stage.clientHeight + 1) cover.style.width = (cw -= 12) + 'px';
   $('homePlay').classList.toggle('on', !audio.paused);
   $('homePlayIcon').innerHTML = audio.paused ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
   $('homePlay').ariaLabel = audio.paused ? 'Играть' : 'Пауза';
@@ -2387,6 +2396,7 @@ $('homeLib').onclick = () => { hideHome(); view = null; render(); };
 $('homeSearch').onclick = () => { hideHome(); view = null; render(); $('search').focus(); };
 $('homeNav').onclick = showHome;
 document.fonts?.ready.then(() => { if (!$('home').hidden) renderHome(); }); // the name is sized to the width: measure again with the real font
+addEventListener('resize', () => { if (!$('home').hidden) renderHome(); }); // turning the phone / the keyboard showing up
 $('homePicks').addEventListener('scroll', () => {
   const row = $('homePicks'), w = row.scrollWidth / 3;
   if (homePicks.length <= 2) return;
