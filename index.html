@@ -507,13 +507,13 @@
     .track:not(.active):not(.stat):hover .art::after { display: none; }
   }
   /* ---- phone home (like a streaming app's start screen) ---- */
-  .home { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; overflow: hidden; background: #050505;
+  .home { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
     padding: calc(10px + env(safe-area-inset-top)) 0 calc(14px + env(safe-area-inset-bottom)); }
   .home[hidden] { display: none; }
-  .home-blob { position: absolute; left: 50%; top: 34%; width: 120vw; height: 120vw; translate: -50% -50%; border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
-    background: center/cover no-repeat; filter: blur(60px) saturate(2) brightness(.85); opacity: .9; animation: blob 14s ease-in-out infinite alternate; z-index: 0; }
-  @keyframes blob { 50% { border-radius: 58% 42% 45% 55% / 42% 58% 42% 58%; rotate: 25deg; scale: 1.08; } 100% { border-radius: 45% 55% 60% 40% / 55% 45% 55% 45%; rotate: -15deg; scale: .95; } }
+  .home-blob { position: absolute; inset: -25%; background: center/cover no-repeat; filter: blur(100px) saturate(1.8) brightness(.4); opacity: .75;
+    animation: drift 40s ease-in-out infinite alternate; z-index: 0; } /* the same glow as the computer's background */
   @media (prefers-reduced-motion: reduce) { .home-blob { animation: none; } }
+  .home-stage { touch-action: pan-y; } /* sideways swipes are ours: next / previous track */
   .home > *:not(.home-blob) { position: relative; z-index: 1; }
   .home-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; }
   .home-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--text); background: rgba(0,0,0,.28); }
@@ -531,15 +531,15 @@
   .home-now .art { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
   .home-names { min-width: 0; }
   .home-names .t-title { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .home-picks { display: flex; gap: 14px; overflow-x: auto; padding: 18px 16px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; flex-shrink: 0; }
+  .home-picks { display: flex; gap: 14px; overflow-x: auto; padding: 18px 16px 6px; scrollbar-width: none; flex-shrink: 0; }
   .home-picks::-webkit-scrollbar { display: none; }
-  .pick { position: relative; flex: 0 0 150px; height: 168px; scroll-snap-align: start; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center;
+  .pick { position: relative; flex: 0 0 150px; height: 168px; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 14px 22px; }
   .pick:nth-child(2n) { border-radius: 58% 42% 55% 45% / 40% 56% 44% 60%; }
   .pick-bg { position: absolute; inset: -20%; background: center/cover no-repeat; filter: blur(22px) saturate(1.9) brightness(.75); }
   .pick .art { position: relative; width: 58px; height: 58px; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
   .pick-name { position: relative; font-size: 15px; font-weight: 800; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
-  .pick-sub { position: relative; font-size: 12px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .pick-sub { display: none; position: relative; font-size: 12px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .nav-item#homeNav { display: none; }
   @media (pointer: coarse) and (max-width: 720px) { .nav-item#homeNav { display: flex; } }
   /* 9. shimmer while a cover loads */
@@ -2065,7 +2065,7 @@ function shuffled(ids, first) {
 let queueLabel = 'Моя волна', nextQueueLabel = null;
 try { queueLabel = localStorage.getItem('queueLabel') || queueLabel; } catch {}
 function playFrom(ids, id) {
-  queueLabel = nextQueueLabel || (view === STATS || view === HISTORY ? 'Моя волна' : curPl()?.name || curArtist()?.name || curAlbum()?.name || curSmart()?.name || 'Все треки');
+  queueLabel = nextQueueLabel ?? (view === STATS || view === HISTORY ? 'Моя волна' : curPl()?.name || curArtist()?.name || curAlbum()?.name || curSmart()?.name || 'Все треки');
   nextQueueLabel = null;
   try { localStorage.setItem('queueLabel', queueLabel); } catch {}
   order = ids;
@@ -2337,12 +2337,13 @@ const hideHome = () => { $('home').hidden = true; };
 function renderHome() {
   const t = curTrack();
   $('homeLabel').textContent = queueLabel;
+  $('homeLabel').hidden = !queueLabel;
   const src = t && coverSrc(t);
   $('homeBlob').style.backgroundImage = src ? `url("${src}")` : 'none';
-  const name = t ? splitArtists(t.artist)[0] || t.title : 'Моя музыка';
+  const name = t ? t.artist || t.title : 'Моя музыка';
   $('homeArtist').textContent = name;
   // as big as possible while the longest word still fits the width (words never break in the middle)
-  const el = $('homeArtist'); let size = 112;
+  const el = $('homeArtist'); let size = 84;
   el.style.fontSize = size + 'px';
   while (size > 30 && el.scrollWidth > el.clientWidth + 1) el.style.fontSize = (size -= 4) + 'px';
   $('homePlay').classList.toggle('on', !audio.paused);
@@ -2353,29 +2354,52 @@ function renderHome() {
   // suggestions: picked again only when the track changes, so the row doesn't jump around
   if (homePicksFor !== (t?.id || '')) {
     homePicksFor = t?.id || '';
-    homePicks = (tracks.length > 1 && t ? radioPicks(12) : shuffled(tracks.map(x => x.id)).slice(0, 12)).filter(id => id !== t?.id);
-    $('homePicks').innerHTML = '';
-    for (const id of homePicks) {
+    homePicks = (tracks.length > 1 && t ? radioPicks(11) : shuffled(tracks.map(x => x.id)).slice(0, 11)).filter(id => id !== t?.id).slice(0, 10);
+    const row = $('homePicks');
+    row.innerHTML = '';
+    for (let copy = 0; copy < (homePicks.length > 2 ? 3 : 1); copy++) for (const id of homePicks) {
       const x = tracks.find(y => y.id === id); if (!x) continue;
       const b = document.createElement('button'), cs = coverSrc(x);
       b.className = 'pick';
-      b.innerHTML = '<div class="pick-bg"></div><div class="art"></div><div class="pick-name"></div><div class="pick-sub"></div>';
+      b.innerHTML = '<div class="pick-bg"></div><div class="art"></div><div class="pick-name"></div>';
       if (cs) b.querySelector('.pick-bg').style.backgroundImage = `url("${cs}")`; else b.querySelector('.pick-bg').style.background = '#2c2c2e';
       paintArt(b.querySelector('.art'), x);
       b.querySelector('.pick-name').textContent = x.title;
-      b.querySelector('.pick-sub').textContent = x.artist;
-      b.onclick = () => { nextQueueLabel = 'Моя волна'; playFrom(homePicks, id); }; // the suggestions become the queue, the radio carries on after them
-      $('homePicks').append(b);
+      b.onclick = () => { nextQueueLabel = ''; playFrom(homePicks, id); }; // the suggestions become the queue, the radio carries on after them
+      row.append(b);
     }
+    if (homePicks.length > 2) setTimeout(() => { row.scrollLeft = row.scrollWidth / 3; }); // start on the middle copy
   }
 }
-$('homePlay').onclick = () => { if (!curTrack() && tracks.length) { nextQueueLabel = 'Моя волна'; const ids = shuffled(tracks.map(x => x.id)); return playFrom(ids, ids[0]); } togglePlay(); };
+$('homePlay').onclick = () => { if (!curTrack() && tracks.length) { nextQueueLabel = 'Все треки'; const ids = shuffled(tracks.map(x => x.id)); return playFrom(ids, ids[0]); } togglePlay(); };
 $('homeNow').onclick = () => openNp(false);
 $('homeTt').onclick = () => openNp(true);
 $('homeFav').onclick = () => curTrack() && toggleFav(curTrack().id);
 $('homeLib').onclick = () => { hideHome(); view = null; render(); };
 $('homeSearch').onclick = () => { hideHome(); view = null; render(); $('search').focus(); };
 $('homeNav').onclick = showHome;
+$('homePicks').addEventListener('scroll', () => {
+  const row = $('homePicks'), w = row.scrollWidth / 3;
+  if (homePicks.length <= 2) return;
+  if (row.scrollLeft < w * .5) row.scrollLeft += w; else if (row.scrollLeft > w * 1.5) row.scrollLeft -= w;
+}, { passive: true });
+// swipe the big name / cover area: left = next track, right = previous one (not a restart)
+let swipeX = null, swipeY = 0;
+$('home').querySelector('.home-stage').addEventListener('touchstart', e => { swipeX = e.touches[0].clientX; swipeY = e.touches[0].clientY; }, { passive: true });
+$('home').querySelector('.home-stage').addEventListener('touchend', e => {
+  if (swipeX === null) return;
+  const dx = e.changedTouches[0].clientX - swipeX, dy = e.changedTouches[0].clientY - swipeY;
+  swipeX = null;
+  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || !queue.length) return;
+  homeSwipe(dx < 0 ? 1 : -1);
+});
+function homeSwipe(dir) {
+  const playing = !audio.paused;
+  if (dir > 0) { if (playing) skipNext(); else if (qi + 1 < queue.length) { qi++; load(false); } } // paused stays paused
+  else if (qi > 0) { qi--; load(playing); }
+  else { audio.currentTime = 0; }
+  if (!calm()) $('home').querySelector('.home-stage').animate([{ transform: `translateX(${dir * -40}px)`, opacity: .3 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
 
 // --- full-screen "now playing" with lyrics ---
 let npLyrics = false, npSeeking = false;
@@ -3850,7 +3874,7 @@ Promise.all([tx('tracks', 'readonly', s => s.getAll()), tx('playlists', 'readonl
     // Nothing from last time -> the whole library shuffled, waiting for ▶
     if (phoneLayout() && tracks.length) {
       if (!curTrack()) { order = tracks.map(t => t.id); queue = shuffled(order); qi = 0; load(false); }
-      queueLabel = curTrack() && localStorage.getItem('queueLabel') || 'Моя волна';
+      queueLabel = curTrack() ? localStorage.getItem('queueLabel') ?? 'Все треки' : 'Все треки';
       showHome();
     }
     render(); fetchCovers(); tagOldTracks().then(fetchAllLyrics); scRefresh().then(() => checkNews());
