@@ -823,6 +823,13 @@
     <div class="set-btns"><button class="btn2 sm" id="dupMerge" hidden>Оставить файлы</button></div>
   </div>
   <div class="set-sec set-dir">
+    <h3>Общая статистика: телефон + компьютер</h3>
+    <p class="set-hint">Чтобы итоги месяца и года считались вместе со всех устройств, статистика хранится в скрытой заметке на твоём GitHub. Создай ключ: <a class="sc-link" href="https://github.com/settings/tokens/new?scopes=gist&description=%D0%9C%D0%BE%D1%8F%20%D0%BC%D1%83%D0%B7%D1%8B%D0%BA%D0%B0" target="_blank" rel="noopener">новый ключ на GitHub</a> (Expiration — «No expiration», галочка только «gist») и вставь его сюда на каждом устройстве. Ключ хранится только в этом плеере и не попадает в резервную копию.</p>
+    <input class="search glass" id="ghToken" type="password" placeholder="ghp_…" autocomplete="off" spellcheck="false" aria-label="Ключ GitHub">
+    <div class="set-btns"><button class="btn2 sm" id="ghSave">Подключить</button><button class="set-link" id="ghDel" hidden>Отключить</button><span class="set-hint" id="ghState" style="margin:0"></span></div>
+    <p class="set-hint">Статистику на это устройство переносили из резервной копии с другого? Укажи тот файл, чтобы она не посчиталась дважды: <button class="set-link" id="ghBase">выбрать файл копии…</button> <span id="ghBaseState"></span></p>
+  </div>
+  <div class="set-sec set-dir">
     <h3>Резервная копия</h3>
     <p class="set-hint">Сохраняет в файл плейлисты, лайки, аватарки, обложки, тексты, статистику и историю. Сами аудиофайлы в копию не входят: после восстановления они подтянутся из папки с музыкой.</p>
     <div class="set-btns"><button class="btn2 sm" id="backupSave">Сохранить копию</button><button class="btn2 sm" id="backupLoad">Восстановить из копии…</button></div>
@@ -1731,7 +1738,7 @@ function renderSettings() {
 }
 // phone library page: opening anything from it leaves the page for that list
 document.querySelector('nav').addEventListener('click', e => { if (e.target.closest('.nav-item:not(#settingsBtn), #newPl')) document.body.classList.remove('lib'); }, true);
-$('settingsBtn').onclick = () => { $('setSearch').value = ''; renderSettings(); $('settings').showModal(); };
+$('settingsBtn').onclick = () => { paintSync(); $('setSearch').value = ''; renderSettings(); $('settings').showModal(); };
 $('setClose').onclick = () => $('settings').close();
 $('settings').onclick = e => { if (e.target === $('settings')) $('settings').close(); }; // click on the dimmed backdrop
 $('setSearch').oninput = renderSettings;
@@ -1815,7 +1822,7 @@ function renderView() {
   // performer page: how much you've listened (all months), and the tracks split into sections
   let sections = [[null, shown]];
   if (ar) {
-    const secs = (stats.secs[ar.key] || 0) + Object.values(archive).reduce((s, m) => s + (m.secs?.[ar.key] || 0), 0);
+    const secs = Object.values(allMonths()).reduce((s, m) => s + (m.secs[ar.key] || 0), 0);
     $('count').textContent += secs >= 60 ? ` · ты слушал ${fmtListen(secs)}` : '';
     if (!q) {
       const top = ar.tracks.length >= 4 ? ar.tracks.filter(t => t.plays).sort((a, b) => b.plays - a.plays).slice(0, 5) : []; // a top of 1–3 tracks just repeats the list
@@ -1891,7 +1898,7 @@ function favRanks(m = {}) {
 function renderFavArtists() {
   rollStats();
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
-  const now = favRanks(stats), last = favRanks(archive[monthKey(d)]);
+  const M = allMonths(), now = favRanks(M[stats.month]), last = favRanks(M[monthKey(d)]);
   const blocks = [
     ['Любимые исполнители', now.ars.slice(0, 10), last.ars.map(x => x.a.key), x => x.a.key, (b, { a }) => {
       b.querySelector('.fa-art').classList.add('round');
@@ -2031,8 +2038,8 @@ function streaks(days = listenDays, today = new Date()) {
 }
 function renderDays(month) {
   const [y, m] = month.split('-').map(Number), n = new Date(y, m, 0).getDate(), today = dayKey();
-  const secs = Array.from({ length: n }, (_, i) => listenDays[`${month}-${String(i + 1).padStart(2, '0')}`] || 0);
-  const max = Math.max(...secs, 1), { cur, best } = streaks();
+  const days = allDays(), secs = Array.from({ length: n }, (_, i) => days[`${month}-${String(i + 1).padStart(2, '0')}`] || 0);
+  const max = Math.max(...secs, 1), { cur, best } = streaks(days);
   $('dayChart').hidden = false;
   $('dayChart').innerHTML = `<div class="days-head"><span>Серия: <b>${cur} ${pl(cur, ['день', 'дня', 'дней'])} подряд</b></span><span>рекорд ${best} ${pl(best, ['день', 'дня', 'дней'])}</span></div><div class="days-bars"></div><div class="days-nums"></div>`;
   secs.forEach((s, i) => {
@@ -2081,18 +2088,130 @@ audio.addEventListener('loadstart', () => { curPlayed = 0; curCounted = false; }
 audio.addEventListener('seeking', () => { if (audio.currentTime < 1 && curCounted) { curPlayed = 0; curCounted = false; } });
 audio.addEventListener('pause', saveStats);
 addEventListener('pagehide', saveStats);
+navigator.storage?.persist?.(); // ask the browser never to clear the library and the statistics when space runs low
+
+// --- shared statistics: each device keeps counting its own; the others' arrive through a secret gist on the user's GitHub ---
+// device file = this device's listening minus what came from another device's backup ("base"), so nothing is counted twice
+let deviceId = localStorage.getItem('deviceId');
+if (!deviceId) { deviceId = crypto.randomUUID().slice(0, 8); try { localStorage.setItem('deviceId', deviceId); } catch {} }
+let remote = { months: {}, days: {} };
+try { remote = JSON.parse(localStorage.getItem('remoteStats')) || remote; } catch {}
+function mergeMonth(...ms) {
+  const o = { secs: {}, tsecs: {}, plays: {}, names: {}, tinfo: {} };
+  for (const m of ms) if (m) { addUp(o.secs, m.secs); addUp(o.tsecs, m.tsecs); addUp(o.plays, m.plays); Object.assign(o.names, m.names); Object.assign(o.tinfo, m.tinfo); }
+  return o;
+}
+// 'YYYY-MM' -> this device + the others, the current month included. Once the others are in, this device adds only its own
+// listening: what came here in another device's backup is already in that device's file
+const synced = () => Object.keys(remote.months).length > 0 || Object.keys(remote.days).length > 0;
+function allMonths() {
+  rollStats();
+  const mine = synced() ? ownStats().months : { ...archive, [stats.month]: stats }, out = {};
+  for (const k of new Set([...Object.keys(mine), ...Object.keys(remote.months), stats.month])) out[k] = mergeMonth(mine[k], remote.months[k]);
+  return out;
+}
+const allDays = () => addUp(addUp({}, synced() ? ownStats().days : listenDays), remote.days);
+function setStatsBase(local = {}) {
+  let st = null, ar = {}, days = {};
+  try { st = JSON.parse(local.listenStats || 'null'); ar = JSON.parse(local.listenArchive || '{}') || {}; days = JSON.parse(local.listenDays || '{}') || {}; } catch {}
+  const months = { ...ar };
+  if (st?.month) months[st.month] = mergeMonth(ar[st.month], st);
+  localStorage.setItem('statsBase', JSON.stringify({ months, days }));
+}
+function ownStats() {
+  let base = null;
+  try { base = JSON.parse(localStorage.getItem('statsBase')); } catch {}
+  base ||= { months: {}, days: {} };
+  const minus = (a = {}, b = {}) => { const o = {}; for (const [k, v] of Object.entries(a)) if (v - (b[k] || 0) > .5) o[k] = v - (b[k] || 0); return o; };
+  const months = {};
+  for (const [k, m] of [...Object.entries(archive), [stats.month, stats]]) {
+    const b = base.months[k] || {}, o = { secs: minus(m.secs, b.secs), tsecs: minus(m.tsecs, b.tsecs), plays: minus(m.plays, b.plays), names: {}, tinfo: {} };
+    for (const a of Object.keys(o.secs)) o.names[a] = m.names?.[a];
+    for (const id of new Set([...Object.keys(o.tsecs), ...Object.keys(o.plays)])) if (m.tinfo?.[id]) o.tinfo[id] = m.tinfo[id];
+    if (Object.keys(o.secs).length || Object.keys(o.tsecs).length) months[k] = o;
+  }
+  return { months, days: minus(listenDays, base.days) };
+}
+const GIST_DESC = 'Моя музыка: статистика прослушиваний';
+async function gh(path, opt = {}) {
+  const r = await fetch('https://api.github.com' + path, { ...opt, headers: { Authorization: 'Bearer ' + localStorage.getItem('ghToken'), Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' } });
+  if (!r.ok) throw new Error(r.status === 401 ? 'ключ не подходит или удалён' : r.status === 403 ? 'у ключа нет доступа к gist' : 'GitHub ответил ' + r.status);
+  return r.json();
+}
+let syncRun = null;
+function syncStats() { return syncRun ||= doSync().finally(() => { syncRun = null; }); }
+async function doSync() {
+  if (!localStorage.getItem('ghToken') || !navigator.onLine) return;
+  saveStats();
+  const file = `device-${deviceId}.json`, files = { [file]: { content: JSON.stringify({ device: phoneLayout() ? 'Телефон' : 'Компьютер', at: Date.now(), ...ownStats() }) } };
+  let id = localStorage.getItem('ghGist'), g = null;
+  if (id) g = await gh('/gists/' + id, { method: 'PATCH', body: JSON.stringify({ files }) }).catch(e => { if (/ 404$/.test(e.message)) return null; throw e; });
+  if (!g) { // first time here: join the gist another device made, or start one
+    const found = (await gh('/gists?per_page=100')).find(x => x.description === GIST_DESC);
+    g = found ? await gh('/gists/' + found.id, { method: 'PATCH', body: JSON.stringify({ files }) })
+      : await gh('/gists', { method: 'POST', body: JSON.stringify({ description: GIST_DESC, public: false, files }) });
+    localStorage.setItem('ghGist', g.id);
+  }
+  const r = { months: {}, days: {} }, devices = [];
+  for (const [name, f] of Object.entries(g.files)) {
+    if (!name.startsWith('device-') || name === file) continue;
+    const d = JSON.parse(f.truncated ? await (await fetch(f.raw_url)).text() : f.content);
+    devices.push(d.device);
+    for (const [k, m] of Object.entries(d.months || {})) r.months[k] = mergeMonth(r.months[k], m);
+    addUp(r.days, d.days);
+  }
+  remote = r;
+  try { localStorage.setItem('remoteStats', JSON.stringify(r)); localStorage.setItem('ghSync', JSON.stringify({ at: Date.now(), devices })); } catch {}
+  render();
+}
+function paintSync(err) {
+  const on = !!localStorage.getItem('ghToken');
+  let info = {};
+  try { info = JSON.parse(localStorage.getItem('ghSync')) || {}; } catch {}
+  $('ghDel').hidden = !on; $('ghSave').textContent = on ? 'Сменить ключ' : 'Подключить';
+  $('ghState').textContent = err ? 'Не получилось: ' + err : !on ? '' : !info.at ? 'Подключается…'
+    : `Обновлено ${new Date(info.at).toLocaleString('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${info.devices?.length ? 'вместе с: ' + info.devices.join(', ') : 'другие устройства пока не подключены'}`;
+  $('ghBaseState').textContent = localStorage.getItem('statsBase') ? '✓ учтено' : '';
+}
+$('ghSave').onclick = async () => {
+  const v = $('ghToken').value.trim();
+  if (!v) return $('ghToken').focus();
+  localStorage.setItem('ghToken', v); localStorage.removeItem('ghGist'); localStorage.removeItem('ghSync'); $('ghToken').value = '';
+  paintSync();
+  try { await syncStats(); paintSync(); } catch (e) { localStorage.removeItem('ghToken'); paintSync(e.message); }
+};
+$('ghDel').onclick = () => {
+  if (!confirm('Отключить общую статистику на этом устройстве? Итоги снова будут только с него. Заметка на GitHub останется.')) return;
+  for (const k of ['ghToken', 'ghGist', 'ghSync', 'remoteStats']) localStorage.removeItem(k);
+  remote = { months: {}, days: {} }; paintSync(); render();
+};
+$('ghBase').onclick = () => {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    let data = null;
+    try { data = JSON.parse(await inp.files[0].text()); } catch {}
+    if (data?.app !== 'moya-muzyka') return alert('Это не файл резервной копии плеера.');
+    setStatsBase(data.local); paintSync(); syncStats().catch(() => {});
+  };
+  inp.click();
+};
+setTimeout(() => syncStats().catch(e => console.warn('sync', e)), 4000);
+setInterval(() => document.visibilityState === 'visible' && syncStats().catch(() => {}), 5 * 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') syncStats().catch(() => {}); });
 
 function renderStats() {
   rollStats();
-  if (!archive[statsMonth]) statsMonth = null;
-  const data = statsMonth ? archive[statsMonth] : stats;
+  const M = allMonths();
+  if (!M[statsMonth] || statsMonth === stats.month) statsMonth = null;
+  const data = M[statsMonth || stats.month];
   const all = Object.entries(data.secs).sort((a, b) => b[1] - a[1]), top = all.slice(0, 5);
   const total = monthTotal(data), now = new Date();
   const resetOn = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('ru', { day: 'numeric', month: 'long' });
   $('title').textContent = 'Топ за месяц'; $('title').removeAttribute('contenteditable');
   $('count').textContent = `${monthLabel(statsMonth || stats.month)} · всего ${fmtListen(total)}` + (statsMonth ? '' : ` · обнулится ${resetOn}`);
   // month tabs: current + archived months, newest first
-  const past = Object.keys(archive).sort().reverse();
+  const past = Object.keys(M).filter(k => k < stats.month).sort().reverse();
   $('monthTabs').hidden = !past.length;
   $('monthTabs').innerHTML = '';
   for (const key of [null, ...past]) {
@@ -2833,7 +2952,7 @@ function drawRecap(ctx, heading, data, imgs, { star = 'ИСПОЛНИТЕЛЬ М
 }
 // a year = its archived months + this month if it's in that year, added up
 function yearData(year) {
-  const months = [...Object.entries(archive), [stats.month, stats]].filter(([k, d]) => k.startsWith(year + '-') && monthTotal(d) > 0);
+  const months = Object.entries(allMonths()).filter(([k, d]) => k.startsWith(year + '-') && monthTotal(d) > 0);
   const data = { secs: {}, tsecs: {}, plays: {}, names: {}, tinfo: {} };
   for (const [, d] of months) {
     addUp(data.secs, d.secs); addUp(data.tsecs, d.tsecs); addUp(data.plays, d.plays);
@@ -2844,7 +2963,7 @@ function yearData(year) {
 }
 async function openRecap(yearMode = false) {
   const month = statsMonth || stats.month, year = month.slice(0, 4);
-  const y = yearMode && yearData(year), data = yearMode ? y.data : statsMonth ? archive[statsMonth] : stats;
+  const y = yearMode && yearData(year), data = yearMode ? y.data : allMonths()[statsMonth || stats.month];
   const heading = yearMode ? `${year} год` : monthLabel(month);
   const artists = Object.entries(data.secs).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const top = Object.entries(data.tsecs || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -2885,7 +3004,7 @@ let orphans = {}; // fileKey -> saved track data whose audio isn't in the librar
 async function exportBackup() {
   saveStats(); saveHistory();
   const data = {
-    app: 'moya-muzyka', version: 1, exportedAt: new Date().toISOString(),
+    app: 'moya-muzyka', version: 1, exportedAt: new Date().toISOString(), device: deviceId,
     tracks: await Promise.all(tracks.map(async t => ({
       id: t.id, fileKey: t.key || fileKey(t.file), artist: t.artist, title: t.title, duration: t.duration, added: t.added,
       cover: t.cover, coverManual: t.coverManual, coverChecked: t.coverChecked, coverBlob: t.coverBlob ? await toDataURL(t.coverBlob) : undefined,
@@ -2925,6 +3044,9 @@ async function importBackup(file) {
   removeEventListener('pagehide', saveStats);
   audio.pause();
   for (const [k, v] of Object.entries(data.local || {})) if (LOCAL_KEYS.includes(k)) localStorage.setItem(k, v);
+  // the restored statistics belong to the device that made the copy: when that's another one, they're not counted again from here
+  if (data.device ? data.device !== deviceId : !confirm('Эта копия сделана на этом же устройстве?\n\nОК — да, это его же копия.\nОтмена — копия с другого устройства (телефон / компьютер).')) setStatsBase(data.local);
+  else localStorage.removeItem('statsBase');
   try { stats = JSON.parse(data.local?.listenStats) || stats; listenHistory = JSON.parse(data.local?.history) || listenHistory; } catch {}
   const waiting = Object.keys(orphans).length;
   alert(`Копия восстановлена.${waiting ? `\n\n${waiting} ${pl(waiting, ['трек ждёт', 'трека ждут', 'треков ждут'])} своих аудиофайлов: они подтянутся, когда эти файлы окажутся в папке с музыкой или ты добавишь их вручную.` : ''}`);
