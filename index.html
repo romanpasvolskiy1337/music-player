@@ -799,7 +799,6 @@
     <div class="set-btns"><button class="btn2 sm" id="dirPick">Выбрать папку</button><button class="btn2 sm" id="dirScan" hidden>Проверить сейчас</button><button class="set-link" id="dirOff" hidden>Отключить</button></div>
   </div>
   <div class="set-sec set-dir">
-    <label class="set-row" style="align-items:center;cursor:pointer"><h3>Бесконечное радио</h3><input type="checkbox" class="switch" id="radioOn"></label>
     <p class="set-hint">Когда очередь заканчивается, дальше играют похожие треки из твоей библиотеки: те же исполнители, их соавторы и те, кого ты обычно слушаешь вместе с ними.</p>
   </div>
   <div class="set-sec set-dir">
@@ -2205,7 +2204,7 @@ function load(autoplay = true, startAt = 0) {
   if (!t) return;
   if (!t.file && !t.sc) return toast('Нет файла трека — подключи папку с музыкой, он подтянется из неё');
   if (t.sc && !navigator.onLine) { // offline: move on to the next track that can play
-    if (autoplay && qi + 1 < queue.length) { qi++; return load(autoplay); }
+    if (autoplay && tracks.some(x => x.file) && (qi + 1 < queue.length || extendRadio())) { qi++; return load(autoplay); }
     return toast('Нет интернета — треки из SoundCloud сейчас не играют');
   }
   if (url) URL.revokeObjectURL(url);
@@ -2246,8 +2245,7 @@ function step(dir) {
 }
 
 // --- radio: when the queue runs out, keep going with similar tracks from the library ---
-let radio = true;
-try { radio = localStorage.getItem('radio') !== '0'; } catch {}
+const radio = true; // the music never stops by itself: after the queue, similar tracks keep coming
 // similar = same performers, their collaborators, and performers you tend to play around the same time
 function radioPicks(k = 10) {
   const seeds = queue.slice(Math.max(0, qi - 4), qi + 1).map(id => tracks.find(t => t.id === id)).filter(Boolean);
@@ -2271,8 +2269,6 @@ function radioPicks(k = 10) {
   };
   return pool.map(t => [t.id, score(t)]).sort((a, b) => b[1] - a[1]).slice(0, k).map(([id]) => id);
 }
-$('radioOn').checked = radio;
-$('radioOn').onchange = () => { radio = $('radioOn').checked; try { localStorage.setItem('radio', radio ? '1' : '0'); } catch {} render(); };
 function extendRadio() {
   const picks = radioPicks();
   if (!picks.length) return false;
@@ -3425,8 +3421,8 @@ async function scStart(t, autoplay) {
   s ||= await scCur.load(t.sc);
   scIdle.w?.pause(); // the widget that played the previous track
   if (curTrack() !== t) return;
-  if (!s) { audio.pause(); return toast('SoundCloud не отдаёт этот трек: нет интернета, или его удалили или закрыли'); }
-  if (s.policy === 'BLOCK') { audio.pause(); return toast('SoundCloud закрыл этот трек для твоей страны — он не сыграет во встроенном плеере'); }
+  if (!s) return failNext('SoundCloud не отдаёт этот трек: нет интернета, или его удалили или закрыли');
+  if (s.policy === 'BLOCK') return failNext('SoundCloud закрыл этот трек для твоей страны');
   scLoaded = t.sc;
   scCur.w.setVolume(curVol * 100);
   if (autoplay) audio.play().catch(() => {}); else scGo();
@@ -3463,9 +3459,17 @@ function scGuard(retry) {
 }
 function scFail(why) {
   clearTimeout(scWatchdog);
-  audio.pause();
-  toast(`${why} — можно открыть его на сайте: «⋯» → «Открыть в SoundCloud»`);
+  failNext(why);
 }
+// several failures in a row (no internet, say) stop the music instead of flicking through the whole library
+let failRun = 0;
+function failNext(why) {
+  if (++failRun > 8) { failRun = 0; audio.pause(); return toast(`${why}. Подряд не сыграло несколько треков — проверь интернет`); }
+  toast(`${why} — включаю следующий`);
+  step(1);
+}
+audio.addEventListener('timeupdate', () => { if (audio.currentTime > 5 && (!curTrack()?.sc || scHeardAt >= scStartAt)) failRun = 0; });
+audio.addEventListener('error', () => { if (curTrack() && !curTrack().sc) failNext('Файл трека не читается'); });
 audio.addEventListener('play', scGo);
 audio.addEventListener('pause', () => { clearTimeout(scWatchdog); scCur.w?.pause(); });
 audio.addEventListener('seeked', () => {
