@@ -527,14 +527,19 @@
   .home-cover .art { width: 100%; height: 100%; border-radius: 20px; font-size: 80px; }
   .home-cover .art .eqbars { display: none; } /* the overlay already says what's going on */
   /* like hovering a track on the computer: a dark veil with ▶ / ❚❚ */
-  .home-cover-ico { position: absolute; inset: 0; border-radius: 20px; display: grid; place-items: center; background: rgba(0,0,0,.28); color: #fff; transition: background .2s; }
+  .home-cover-ico { position: absolute; inset: 0; border-radius: 20px; display: grid; place-items: center; background: rgba(0,0,0,.28); color: #fff; transition: background .2s, opacity .2s; }
   .home-cover-ico svg { width: 74px; height: 74px; padding: 20px; border-radius: 50%; background: rgba(0,0,0,.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   .home-cover.on .home-cover-ico { background: rgba(0,0,0,.08); }
-  .home-cover.on .home-cover-ico svg { opacity: .8; }
+  .home-cover.on .home-cover-ico { opacity: 0; transition: opacity .7s ease 1s; } /* playing: the ❚❚ fades away after a second; pause brings ▶ back at once */
+  /* playing: the cover breathes */
+  .home-cover.on { animation: coverPulse 2.6s ease-in-out infinite; }
+  @keyframes coverPulse { 50% { scale: 1.03; box-shadow: 0 30px 80px rgba(0,0,0,.6); } }
+  @media (prefers-reduced-motion: reduce) { .home-cover.on { animation: none; } }
   .home-artist { width: 100%; font-family: Unbounded, -apple-system, "Segoe UI", sans-serif; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; text-align: center;
     overflow-wrap: normal; word-break: keep-all; text-shadow: 0 4px 30px rgba(0,0,0,.35); }
   .home-track { width: 100%; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 999px; flex-shrink: 0;
-    border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.22); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+    border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .home-track { background: linear-gradient(to right, rgba(255,255,255,.18) var(--p, 0%), rgba(0,0,0,.22) var(--p, 0%)); } /* fills up as the track plays */
   .home-cover, .home-artist { flex-shrink: 0; }
   .home-tt, .home-track .fav { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; color: var(--text); opacity: 1; }
   .home-tt .tt { width: auto; font-size: 18px; }
@@ -3845,6 +3850,7 @@ audio.ontimeupdate = () => {
   if (seeking) return;
   $('cur').textContent = fmt(audio.currentTime); $('dur').textContent = fmt(audio.duration);
   $('seek').value = audio.duration ? audio.currentTime / audio.duration * 1000 : 0;
+  $('home').querySelector('.home-track').style.setProperty('--p', $('seek').value / 10 + '%');
   drawWave();
 };
 audio.onended = () => { if (!sleepEnd) return step(1); setSleep(0); toast('Таймер сна: музыка остановлена'); };
