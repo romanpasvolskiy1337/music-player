@@ -242,6 +242,19 @@
   .albums { margin-bottom: 22px; }
   .albums[hidden] { display: none; }
   .alb-h { font-size: 13px; font-weight: 600; color: var(--dim); margin-bottom: 12px; }
+  .fa-h { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
+  .fa-row { display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+  .fa { flex: 0 0 140px; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; min-width: 0; }
+  .fa-art { width: 140px; height: 140px; border-radius: 14px; font-size: 48px; margin-bottom: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .fa-rank { display: flex; align-items: center; gap: 5px; font-size: 17px; font-weight: 700; }
+  .fa-up { font-size: 11px; color: var(--text); } .fa-down { font-size: 11px; color: var(--dim); }
+  .fa-name { width: 100%; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fa-art.round { border-radius: 50%; }
+  .fa-sub { width: 100%; font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fa-sub:empty { display: none; }
+  .fa-time { font-size: 13px; color: var(--dim); }
+  .fa-when { display: block; font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--dim); margin-top: 2px; }
+  .fa-row + .fa-h { margin-top: 26px; }
   .alb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 18px; }
   .alb { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; border-radius: 12px; }
   .art.alb-art { width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; margin-bottom: 8px; font-size: 36px; box-shadow: 0 10px 28px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.1); transition: transform .2s; }
@@ -517,6 +530,7 @@
   @media (prefers-reduced-motion: reduce) { .home-blob { animation: none; } }
   .home > *:not(.home-blob) { position: relative; z-index: 1; }
   .home-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; }
+  .home-top::before { content: ""; width: 44px; flex-shrink: 0; } /* keeps the label centred against the search button */
   .home-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--text); background: rgba(0,0,0,.28); }
   .home-pill { min-width: 0; max-width: 60vw; padding: 10px 20px; border-radius: 999px; background: rgba(0,0,0,.35); font-size: 17px; font-weight: 800; letter-spacing: -.01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -691,7 +705,6 @@
 <section class="home" id="home" hidden aria-label="Главная">
   <div class="home-blob" id="homeBlob" aria-hidden="true"></div>
   <div class="home-top">
-    <button class="home-icon" id="homeLib" aria-label="Библиотека" title="Библиотека"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5v14M9 5v14"/><path d="m14 5 5 14"/></svg></button>
     <div class="home-pill" id="homeLabel">Моя волна</div>
     <button class="home-icon" id="homeSearch" aria-label="Поиск" title="Поиск"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </div>
@@ -1811,6 +1824,7 @@ function renderView() {
       sections = top.length ? [['Чаще всего слушаешь', top], ['Все треки', ar.tracks]] : [[null, ar.tracks]];
     }
   }
+  if (p?.id === FAV && !q) renderFavArtists();
   const cur = queue[qi];
   $('list').innerHTML = '';
   for (const [label, list] of sections) {
@@ -1867,6 +1881,51 @@ function renderView() {
     }
   }
   if (q.length >= 3 && !view) renderScHits(q);
+}
+// "Любимое": this month's top performers and tracks by listening time; the arrow compares with last month's place
+const CROWN = '<svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-label="первое место"><path d="M0 2l4 4 4-6 4 6 4-4-1.5 10h-13z"/></svg>';
+function favRanks(m = {}) {
+  const ars = artistList().map(a => ({ a, secs: m.secs?.[a.key] || 0 })).filter(x => x.secs >= 60).sort((x, y) => y.secs - x.secs);
+  const trs = tracks.map(t => ({ t, secs: m.tsecs?.[t.id] || 0 })).filter(x => x.secs >= 60).sort((x, y) => y.secs - x.secs);
+  return { ars, trs };
+}
+function renderFavArtists() {
+  rollStats();
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  const now = favRanks(stats), last = favRanks(archive[monthKey(d)]);
+  const blocks = [
+    ['Любимые исполнители', now.ars.slice(0, 10), last.ars.map(x => x.a.key), x => x.a.key, (b, { a }) => {
+      b.querySelector('.fa-art').classList.add('round');
+      artistArt(b.querySelector('.fa-art'), a);
+      b.querySelector('.fa-name').textContent = a.name;
+      b.onclick = () => { view = ARTIST + a.key; $('search').value = ''; render(); document.querySelector('main').scrollTop = 0; };
+    }],
+    ['Любимые треки', now.trs.slice(0, 10), last.trs.map(x => x.t.id), x => x.t.id, (b, { t }, list) => {
+      paintArt(b.querySelector('.fa-art'), t);
+      b.querySelector('.fa-name').textContent = t.title;
+      b.querySelector('.fa-sub').textContent = t.artist;
+      b.onclick = () => { nextQueueLabel = 'Любимые треки'; playFrom(list.map(x => x.t.id), t.id); };
+    }],
+  ].filter(x => x[1].length);
+  $('albums').hidden = !blocks.length;
+  $('albums').innerHTML = '';
+  for (const [title, list, before, key, paint] of blocks) {
+    const h = document.createElement('div'), row = document.createElement('div');
+    h.className = 'alb-h fa-h'; h.textContent = title;
+    h.insertAdjacentHTML('beforeend', `<span class="fa-when">за ${new Date().toLocaleDateString('ru', { month: 'long' })}</span>`);
+    row.className = 'fa-row';
+    list.forEach((x, i) => {
+      const b = document.createElement('button'), was = before.indexOf(key(x));
+      b.className = 'fa';
+      b.innerHTML = '<div class="art fa-art"></div><div class="fa-rank"></div><div class="fa-name"></div><div class="fa-sub"></div><div class="fa-time"></div>';
+      b.querySelector('.fa-rank').innerHTML = (i + 1) + (i === 0 ? CROWN
+        : !before.length || was === i ? '' : was < 0 || was > i ? '<span class="fa-up" aria-label="поднялся">▲</span>' : '<span class="fa-down" aria-label="опустился">▼</span>');
+      b.querySelector('.fa-time').textContent = fmtListen(x.secs);
+      paint(b, x, list);
+      row.append(b);
+    });
+    $('albums').append(h, row);
+  }
 }
 // album cards on a performer's page, like a streaming service's discography
 function renderAlbums(ar) {
@@ -2448,7 +2507,6 @@ $('homePlay').onclick = () => { if (!curTrack() && tracks.length) { nextQueueLab
 $('homeNow').onclick = () => openNp(false);
 $('homeTt').onclick = () => openNp(true);
 $('homeFav').onclick = () => curTrack() && toggleFav(curTrack().id);
-$('homeLib').onclick = () => { hideHome(); view = null; render(); };
 $('homeSearch').onclick = () => { hideHome(); view = null; render(); $('search').focus(); };
 $('tabHome').onclick = showHome;
 $('tabLib').onclick = () => { hideHome(); document.body.classList.add('lib'); $('search').value = ''; render(); document.querySelector('nav').scrollTop = 0; };
