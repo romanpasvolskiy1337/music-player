@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Моя музыка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233a3a3c'/%3E%3Cstop offset='1' stop-color='%231c1c1e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M26 44a6 6 0 1 1-4-5.6V18l20-4v24a6 6 0 1 1-4-5.6V21l-12 2.4z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -513,31 +515,37 @@
   .home-blob { position: absolute; inset: -25%; background: center/cover no-repeat; filter: blur(100px) saturate(1.8) brightness(.4); opacity: .75;
     animation: drift 40s ease-in-out infinite alternate; z-index: 0; } /* the same glow as the computer's background */
   @media (prefers-reduced-motion: reduce) { .home-blob { animation: none; } }
-  .home-stage { touch-action: pan-y; } /* sideways swipes are ours: next / previous track */
   .home > *:not(.home-blob) { position: relative; z-index: 1; }
   .home-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; }
   .home-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--text); background: rgba(0,0,0,.28); }
   .home-pill { min-width: 0; max-width: 60vw; padding: 10px 20px; border-radius: 999px; background: rgba(0,0,0,.35); font-size: 17px; font-weight: 800; letter-spacing: -.01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .home-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 0 16px; }
-  .home-artist { width: 100%; font-weight: 900; letter-spacing: -.05em; line-height: .95; text-align: center; overflow-wrap: normal; word-break: keep-all; text-shadow: 0 6px 40px rgba(0,0,0,.35); }
-  .home-play { width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; background: var(--text); color: #000; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
-  .home-play svg { margin-left: 4px; } .home-play.on svg { margin-left: 0; }
-  .home-track { width: 100%; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: 999px; }
+  .home-pill[hidden] { visibility: hidden; display: block; } /* keeps the icons at the edges */
+  .home-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 12px; padding: 4px 20px 0;
+    touch-action: pan-y; } /* sideways swipes are ours: next / previous track */
+  .home-cover { position: relative; width: min(82vw, 46vh); aspect-ratio: 1; border-radius: 20px; flex-shrink: 0; box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+  .home-cover .art { width: 100%; height: 100%; border-radius: 20px; font-size: 80px; }
+  .home-cover .art .eqbars { display: none; } /* the overlay already says what's going on */
+  /* like hovering a track on the computer: a dark veil with ▶ / ❚❚ */
+  .home-cover-ico { position: absolute; inset: 0; border-radius: 20px; display: grid; place-items: center; background: rgba(0,0,0,.28); color: #fff; transition: background .2s; }
+  .home-cover-ico svg { width: 74px; height: 74px; padding: 20px; border-radius: 50%; background: rgba(0,0,0,.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .home-cover.on .home-cover-ico { background: rgba(0,0,0,.08); }
+  .home-cover.on .home-cover-ico svg { opacity: .8; }
+  .home-artist { width: 100%; font-family: Unbounded, -apple-system, "Segoe UI", sans-serif; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; text-align: center;
+    overflow-wrap: normal; word-break: keep-all; text-shadow: 0 4px 30px rgba(0,0,0,.35); }
+  .home-track { width: 100%; display: flex; align-items: center; gap: 6px; }
   .home-tt, .home-track .fav { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; color: var(--text); opacity: 1; }
   .home-tt .tt { width: auto; font-size: 18px; }
   .home-track .fav svg { width: 22px; height: 22px; }
-  .home-now { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; }
-  .home-now .art { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
-  .home-names { min-width: 0; }
-  .home-names .t-title { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .home-picks { display: flex; gap: 14px; overflow-x: auto; padding: 18px 16px 6px; scrollbar-width: none; flex-shrink: 0; }
+  .home-now { flex: 1; min-width: 0; text-align: center; }
+  .home-now .t-title { display: block; font-size: 17px; font-weight: 700; color: rgba(245,245,247,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .home-picks { display: flex; gap: 14px; overflow-x: auto; padding: 14px 16px 4px; scrollbar-width: none; flex-shrink: 0; }
   .home-picks::-webkit-scrollbar { display: none; }
-  .pick { position: relative; flex: 0 0 150px; height: 168px; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 14px 22px; }
+  .pick { position: relative; flex: 0 0 176px; height: 196px; border-radius: 46% 54% 40% 60% / 52% 44% 56% 48%; overflow: hidden; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; } /* cover and title in the middle of the card */
   .pick:nth-child(2n) { border-radius: 58% 42% 55% 45% / 40% 56% 44% 60%; }
   .pick-bg { position: absolute; inset: -20%; background: center/cover no-repeat; filter: blur(22px) saturate(1.9) brightness(.75); }
-  .pick .art { position: relative; width: 58px; height: 58px; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
+  .pick .art { position: relative; width: 76px; height: 76px; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
   .pick-name { position: relative; font-size: 15px; font-weight: 800; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
   .pick-sub { display: none; position: relative; font-size: 12px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .nav-item#homeNav { display: none; }
@@ -643,11 +651,11 @@
     <button class="home-icon" id="homeSearch" aria-label="Поиск" title="Поиск"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
   </div>
   <div class="home-stage">
+    <button class="home-cover" id="homePlay" aria-label="Играть"><div class="art" id="homeArt"></div><span class="home-cover-ico" aria-hidden="true"><svg id="homePlayIcon" width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></button>
     <div class="home-artist" id="homeArtist"></div>
-    <button class="home-play" id="homePlay" aria-label="Играть"><svg id="homePlayIcon" width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-    <div class="home-track glass">
+    <div class="home-track">
       <button class="home-tt" id="homeTt" aria-label="Текст песни" title="Текст песни"><span class="tt">Tt</span></button>
-      <button class="home-now" id="homeNow" aria-label="Открыть плеер"><div class="art" id="homeArt"></div><div class="home-names"><div class="t-title" id="homeTitle"></div><div class="t-sub" id="homeSub"></div></div></button>
+      <button class="home-now" id="homeNow" aria-label="Открыть плеер"><span class="t-title" id="homeTitle"></span></button>
       <button class="fav" id="homeFav"></button>
     </div>
   </div>
@@ -2343,13 +2351,13 @@ function renderHome() {
   const name = t ? t.artist || t.title : 'Моя музыка';
   $('homeArtist').textContent = name;
   // as big as possible while the longest word still fits the width (words never break in the middle)
-  const el = $('homeArtist'); let size = 84;
+  const el = $('homeArtist'); let size = 54;
   el.style.fontSize = size + 'px';
   while (size > 30 && el.scrollWidth > el.clientWidth + 1) el.style.fontSize = (size -= 4) + 'px';
   $('homePlay').classList.toggle('on', !audio.paused);
   $('homePlayIcon').innerHTML = audio.paused ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
   $('homePlay').ariaLabel = audio.paused ? 'Играть' : 'Пауза';
-  if (t) { paintArt($('homeArt'), t); $('homeTitle').textContent = t.title; $('homeSub').textContent = t.artist; paintFav($('homeFav'), t.id); }
+  if (t) { paintArt($('homeArt'), t); $('homeTitle').textContent = t.title; paintFav($('homeFav'), t.id); }
   $('homeFav').hidden = !t;
   // suggestions: picked again only when the track changes, so the row doesn't jump around
   if (homePicksFor !== (t?.id || '')) {
@@ -2378,6 +2386,7 @@ $('homeFav').onclick = () => curTrack() && toggleFav(curTrack().id);
 $('homeLib').onclick = () => { hideHome(); view = null; render(); };
 $('homeSearch').onclick = () => { hideHome(); view = null; render(); $('search').focus(); };
 $('homeNav').onclick = showHome;
+document.fonts?.ready.then(() => { if (!$('home').hidden) renderHome(); }); // the name is sized to the width: measure again with the real font
 $('homePicks').addEventListener('scroll', () => {
   const row = $('homePicks'), w = row.scrollWidth / 3;
   if (homePicks.length <= 2) return;
