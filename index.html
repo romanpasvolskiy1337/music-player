@@ -2319,6 +2319,9 @@ function updateNpTime() {
   highlightLyric();
 }
 $('nowArt').onclick = $('nowTitle').onclick = () => openNp();
+// phone: the mini player at the bottom opens "now playing" from anywhere on it, except its own heart
+$('nowArt').closest('.now').addEventListener('click', e => { if (phoneLayout() && !e.target.closest('button')) openNp(); });
+function phoneLayout() { return matchMedia('(pointer: coarse) and (max-width: 720px)').matches; }
 $('lyrBtn').onclick = () => openNp(true);
 $('npClose').onclick = closeNp;
 $('npLyrBtn').onclick = () => { npLyrics = !npLyrics; syncNp(); };
@@ -3735,6 +3738,12 @@ Promise.all([tx('tracks', 'readonly', s => s.getAll()), tx('playlists', 'readonl
     restoreSession();
     const shared = new URLSearchParams(location.search), sharedText = ['url', 'text', 'title'].map(k => shared.get(k) || '').join(' ');
     if (SC_RE.test(sharedText)) { history.replaceState(null, '', location.pathname); setTimeout(() => addSoundCloud(sharedText), 300); }
+    // phone: the app opens on "now playing", like a streaming app; the library is one tap away (⌄).
+    // Nothing from last time -> the whole library shuffled, waiting for ▶
+    if (phoneLayout() && tracks.length) {
+      if (!curTrack()) { order = tracks.map(t => t.id); queue = shuffled(order); qi = 0; load(false); }
+      $('np').hidden = false; syncNp();
+    }
     render(); fetchCovers(); tagOldTracks().then(fetchAllLyrics); scRefresh().then(() => checkNews());
     orphans = await getSetting('orphans').catch(() => null) || {};
     musicDir = await getSetting('musicDir').catch(() => null) || null;
