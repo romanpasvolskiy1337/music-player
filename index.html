@@ -555,8 +555,47 @@
   .pick .art { position: relative; width: 76px; height: 76px; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
   .pick-name { position: relative; font-size: 15px; font-weight: 800; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
   .pick-sub { display: none; position: relative; font-size: 12px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .nav-item#homeNav { display: none; }
-  @media (pointer: coarse) and (max-width: 720px) { .nav-item#homeNav { display: flex; } }
+  .tabbar { display: none; }
+  @media (pointer: coarse) and (max-width: 720px) {
+    .tabbar { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom)); translate: -50% 0; z-index: 25; display: flex; gap: 6px; padding: 5px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16); background: rgba(20,20,22,.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .tab { width: 68px; height: 44px; border-radius: 999px; display: grid; place-items: center; color: rgba(245,245,247,.5); transition: background .2s, color .2s; }
+    .tab.on { color: var(--text); background: rgba(255,255,255,.12); }
+    .tab svg { width: 24px; height: 24px; }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); } /* room for the bar under the mini player */
+    .home { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+    /* no top row: the library is its own page (the middle tab), one scroll through every block */
+    body { grid-template-rows: minmax(0,1fr) auto; }
+    body:not(.lib) nav { display: none; }
+    body.lib main { display: none; }
+    body.lib nav { position: relative; margin: 0; padding: calc(18px + env(safe-area-inset-top)) 16px 16px; flex-direction: column; align-items: stretch; gap: 2px;
+      overflow-x: hidden; overflow-y: auto; border-radius: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    body.lib .nav-h { font-size: 22px; font-weight: 800; text-transform: none; letter-spacing: -.02em; color: var(--text); padding: 26px 4px 10px; }
+    body.lib nav > * { flex-shrink: 0; order: 2; } /* blocks keep their height and scroll; artists come first */
+    body.lib .nav-h:first-child { display: flex; font-size: 34px; padding: 4px 4px 6px; order: 0; }
+    body.lib #arHead, body.lib #arList { order: 1; }
+    body.lib .nav-item.on { background: none; font-weight: inherit; }
+    body.lib #newPl { font-size: 26px; width: 40px; height: 40px; }
+    body.lib .nav-item { width: 100%; padding: 9px 6px; font-size: 17px; gap: 14px; white-space: normal; }
+    body.lib .nav-item .ico { display: grid; width: 44px; height: 44px; border-radius: 10px; font-size: 18px; }
+    body.lib .nav-item .ico svg { width: 20px; height: 20px; }
+    body.lib .nav-item .cnt { display: inline; font-size: 14px; }
+    body.lib #plList, body.lib #smartList { display: flex; flex-direction: column; gap: 2px; }
+    body.lib #smartList[hidden] { display: none; }
+    body.lib #arHead { display: flex; }
+    body.lib #arHead[hidden] { display: none; }
+    /* artists: a sideways row of round faces */
+    body.lib #arList { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 4px; }
+    body.lib #arList .nav-item { flex: 0 0 96px; width: 96px; flex-direction: column; gap: 8px; padding: 4px 0; text-align: center; font-size: 14px; background: none; }
+    body.lib #arList .nav-item .ico { width: 96px; height: 96px; border-radius: 50%; font-size: 34px; }
+    body.lib #arList .nav-item .name { width: 100%; }
+    body.lib #arList .nav-item .cnt { display: none; }
+    body.lib #arList .hid-toggle { flex: 0 0 auto; align-self: center; }
+    /* settings: just the gear, top right */
+    body.lib #settingsBtn { position: absolute; top: calc(18px + env(safe-area-inset-top)); right: 12px; width: 48px; height: 48px; padding: 0; justify-content: center; }
+    body.lib #settingsBtn .name { display: none; }
+    body.lib #settingsBtn .ico { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.08); }
+  }
   /* 9. shimmer while a cover loads */
   .art.shimmer { background: linear-gradient(100deg, #1c1c1e 30%, #2e2e30 50%, #1c1c1e 70%) 0 0 / 300% 100% !important; animation: shimmer 1.3s linear infinite; }
   @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
@@ -568,7 +607,6 @@
 <div class="ambient" aria-hidden="true"><i class="amb"></i><i class="amb"></i></div>
 <nav class="glass" aria-label="Библиотека">
   <div class="nav-h">Библиотека</div>
-  <button class="nav-item" id="homeNav"><span class="ico"></span><span class="name">Главная</span></button>
   <button class="nav-item" id="allBtn"><span class="ico">♫</span><span class="name">Все треки</span><span class="cnt" id="allCnt"></span></button>
   <button class="nav-item" id="statsBtn"><span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="4" width="4" height="17" rx="1"/><rect x="17" y="8" width="4" height="13" rx="1"/></svg></span><span class="name">Топ за месяц</span></button>
   <button class="nav-item" id="histBtn"><span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="name">История</span></button>
@@ -668,6 +706,11 @@
   </div>
   <div class="home-picks" id="homePicks" aria-label="Предложенные треки"></div>
 </section>
+<div class="tabbar" id="tabbar">
+  <button class="tab" id="tabHome" aria-label="Главная"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="17" r="3"/><path d="M11 17V4l7 3"/></svg></button>
+  <button class="tab" id="tabLib" aria-label="Библиотека"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5v14M9 5v14"/><path d="m14 5 5 14"/></svg></button>
+  <button class="tab" id="tabFav" aria-label="Любимое"></button>
+</div>
 <div class="np" id="np" hidden role="dialog" aria-label="Сейчас играет">
   <div class="np-bg" id="npBg"></div>
   <div class="np-top">
@@ -1559,6 +1602,12 @@ function openMenu(btn, trackId) {
 }
 
 function renderNav() {
+  const home = !$('home').hidden;
+  $('tabHome').classList.toggle('on', home);
+  const lib = document.body.classList.contains('lib');
+  $('tabLib').classList.toggle('on', !home && (lib || view !== FAV));
+  $('tabFav').classList.toggle('on', !home && !lib && view === FAV);
+  $('tabFav').innerHTML = $('tabFav').classList.contains('on') ? HEART_ON : HEART_OFF;
   if (!$('home').hidden) renderHome();
   const playing = queue[qi] && tracks.some(t => t.id === queue[qi]) ? queue[qi] : null; // footer heart follows the current track
   $('nowFav').hidden = !playing;
@@ -1668,6 +1717,8 @@ function renderSettings() {
   }
   $('setShowAll').hidden = !hiddenArtists.size;
 }
+// phone library page: opening anything from it leaves the page for that list
+document.querySelector('nav').addEventListener('click', e => { if (e.target.closest('.nav-item:not(#settingsBtn), #newPl')) document.body.classList.remove('lib'); }, true);
 $('settingsBtn').onclick = () => { $('setSearch').value = ''; renderSettings(); $('settings').showModal(); };
 $('setClose').onclick = () => $('settings').close();
 $('settings').onclick = e => { if (e.target === $('settings')) $('settings').close(); }; // click on the dimmed backdrop
@@ -2347,7 +2398,7 @@ $('sleepBtn').onclick = () => {
 
 // --- phone home: the current track big, the play button, and suggestions to start from ---
 let homePicksFor = null, homePicks = [];
-function showHome() { closeMenu(); toggleQueue(false); $('np').hidden = true; $('home').hidden = false; renderHome(); }
+function showHome() { document.body.classList.remove('lib'); closeMenu(); toggleQueue(false); $('np').hidden = true; $('home').hidden = false; renderNav(); }
 const hideHome = () => { $('home').hidden = true; };
 function renderHome() {
   const t = curTrack();
@@ -2399,7 +2450,9 @@ $('homeTt').onclick = () => openNp(true);
 $('homeFav').onclick = () => curTrack() && toggleFav(curTrack().id);
 $('homeLib').onclick = () => { hideHome(); view = null; render(); };
 $('homeSearch').onclick = () => { hideHome(); view = null; render(); $('search').focus(); };
-$('homeNav').onclick = showHome;
+$('tabHome').onclick = showHome;
+$('tabLib').onclick = () => { hideHome(); document.body.classList.add('lib'); $('search').value = ''; render(); document.querySelector('nav').scrollTop = 0; };
+$('tabFav').onclick = () => { hideHome(); document.body.classList.remove('lib'); view = FAV; $('search').value = ''; render(); };
 document.fonts?.ready.then(() => { if (!$('home').hidden) renderHome(); }); // the name is sized to the width: measure again with the real font
 addEventListener('resize', () => { if (!$('home').hidden) renderHome(); }); // turning the phone / the keyboard showing up
 $('homePicks').addEventListener('scroll', () => {
